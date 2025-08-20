@@ -1,0 +1,35 @@
+72 31 63 73 // R1CS
+01 00 00 00 // V1
+03 00 00 00 // 3 Sections
+
+02 00 00 00 // section type 2 (constraints)
+78 00 00 00 00 00 00 00 // section size: 120 bytes
+
+// constrait 0
+01 00 00 00 // a has one element
+01 00 00 00 // index 1
+00 00 00 f0 93 f5 e1 43 91 70 b9 79 48 e8 33 28 5d 58 81 81 b6 45 50 b8 29 a0 31 e1 72 4e 64 30
+01 00 00 00 // b has one element
+02 00 00 00 // index 2
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+01 00 00 00 // c has one element
+03 00 00 00 // index 3
+00 00 00 f0 93 f5 e1 43 91 70 b9 79 48 e8 33 28 5d 58 81 81 b6 45 50 b8 29 a0 31 e1 72 4e 64 30
+
+01 00 00 00 // header
+40 00 00 00 00 00 00 00 // size 64
+20 00 00 00 // field size
+01 00 00 f0 93 f5 e1 43 91 70 b9 79 48 e8 33 28 5d 58 81 81 b6 45 50 b8 29 a0 31 e1 72 4e 64 30 // field order
+04 00 00 00 // 4 wires
+00 00 00 00 // 0 pub outputs
+00 00 00 00 // 1 pub input (constant 1)
+03 00 00 00 // 1 private in
+04 00 00 00 00 00 00 00 // number of labels
+01 00 00 00 // nbumber of constraints
+
+03 00 00 00 // labels (wire2labelid)
+20 00 00 00 00 00 00 00 // size 32
+00 00 00 00 00 00 00 00
+01 00 00 00 00 00 00 00
+02 00 00 00 00 00 00 00
+03 00 00 00 00 00 00 00
