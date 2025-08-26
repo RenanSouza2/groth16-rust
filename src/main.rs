@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{prelude::*};
 use std::str::FromStr;
 use num_bigint::BigUint;
+// use num_traits::FromPrimitive;
 
 fn file_read_bytes(file: &mut File, n: usize) -> Vec<u8> {
     let mut buffer = vec![0u8; n];
@@ -44,7 +45,7 @@ fn file_seek_section(file: &mut File, section_type: u64)
 #[derive(Debug)]
 struct Header {
     field_size: usize,
-    n_wires: u64,
+    n_wires: usize,
     n_pub_out: u64,
     n_pub_in: u64,
     n_prv_in: u64,
@@ -60,14 +61,14 @@ fn file_read_section_header(file: &mut File) -> Header {
     let supported = BigUint::from_str("21888242871839275222246405745257275088548364400416034343698204186575808495617").unwrap();
     assert!(field == supported, "unsupported curve");
     
-    let n_wires = file_read_u64(file, 4);
+    let n_wires = file_read_u64(file, 4) as usize;
     let n_pub_out = file_read_u64(file, 4);
     let n_pub_in = file_read_u64(file, 4);
     let n_prv_in = file_read_u64(file, 4);
     let n_labels = file_read_u64(file, 8);
     let n_contraints = file_read_u64(file, 4);
 
-    assert!(n_wires >= n_pub_out + n_pub_in + n_prv_in);
+    assert!(n_wires as u64 >= n_pub_out + n_pub_in + n_prv_in);
 
     return Header {
         field_size,
@@ -82,58 +83,105 @@ fn file_read_section_header(file: &mut File) -> Header {
 
 
 #[derive(Debug)]
-struct Constraint_element {
-    n: u64,
-    id: Vec<u64>,
-    m: Vec<BigUint>
+struct VecSparse {
+    n: usize,
+    max: usize,
+    index: Vec<usize>,
+    value: Vec<BigUint>,
 }
 
-#[derive(Debug)]
-struct Constraint {
-    a: Constraint_element,
-    b: Constraint_element,
-    c: Constraint_element
+impl VecSparse {
+    fn new(max: usize) -> Self {
+        Self {
+            n: 0,
+            max,
+            index: Vec::new(),
+            value: Vec::new()
+        }
+    }
 }
 
-fn file_read_constraint_element(file: &mut File, header: &Header) -> Constraint_element {
-    let n = file_read_u64(file, 4);
-    let mut id_vec: Vec<u64> = Vec::new();
-    let mut m_vec: Vec<BigUint> = Vec::new();
+fn vec_sparse_push(v: &mut VecSparse, index: usize, value: BigUint) {
+    assert!(v.n == 0 || v.index[v.n - 1] < index);
+    assert!(index < v.max);
+    v.n += 1;
+    v.index.push(index);
+    v.value.push(value);
+}
+
+fn matrix_sparse_push(M: &mut Vec<VecSparse>, index: usize, v: VecSparse) {
+    for i in 0..v.n as usize {
+        let value = v.value[i].clone();
+        vec_sparse_push(&mut M[v.index[i]], index, value);
+    }
+}
+
+fn file_read_vec_sparse(file: &mut File, header: &Header) -> VecSparse {
+    let n = file_read_u64(file, 4) as usize;
+    let mut index: Vec<usize> = Vec::new();
+    let mut value: Vec<BigUint> = Vec::new();
     for _i in 0..n {
-        let id = file_read_u64(file, 4);
-        let m = file_read_big_uint(file, header.field_size);
+        let idx = file_read_u64(file, 4) as usize;
+        let val = file_read_big_uint(file, header.field_size);
 
-        assert!(id < header.n_wires);
+        assert!(idx < header.n_wires);
 
-        id_vec.push(id);
-        m_vec.push(m);
+        index.push(idx);
+        value.push(val);
     }
 
-    return Constraint_element {
+    return VecSparse {
         n,
-        id: id_vec,
-        m: m_vec
+        max: header.n_wires,
+        index: index,
+        value: value
     };
+}
+
+fn matrix_sparse_transpose(m: Vec<VecSparse>) -> Vec<VecSparse> {
+    let mut mt: Vec<VecSparse> = (0..m[0].max)
+        .map(|_| VecSparse::new(m.len()))
+        .collect();
+
+    for i  in 0..m.len() {
+        let v = &m[i];
+        for j in 0..v.n {
+            let index = v.index[j];
+            let value = v.value[j].clone();
+            vec_sparse_push(&mut mt[index], i, value);
+        }
+    }
+
+    return mt;
+}
+
+fn file_read_section_constraints(file: &mut File, header: &Header) -> Vec<Vec<VecSparse>> {
+    file_seek_section(file, 2);
+
+    let mut M: Vec<Vec<VecSparse>> = (0..3)
+        .map(|_| Vec::new())
+        .collect();
+
+    for _i in 0..header.n_contraints {
+        for j in 0..3 {
+            let v = file_read_vec_sparse(file, header);
+            M[j].push(v);
+        }
+    }
+
+    let mut Mt: Vec<Vec<VecSparse>> = Vec::new();
+    for m in M {
+        let mt = matrix_sparse_transpose(m);
+        Mt.push(mt);
+    }
+
+    return Mt;
 }
 
 #[derive(Debug)]
 struct Circuit {
     header: Header,
-    constraints: Vec<Constraint>
-}
-
-fn file_read_section_constraints(file: &mut File, header: &Header) -> Vec<Constraint> {
-    file_seek_section(file, 2);
-
-    let mut constraints: Vec<Constraint> = Vec::new();
-    for _i in 0..header.n_contraints {
-        let a = file_read_constraint_element(file, header);
-        let b = file_read_constraint_element(file, header);
-        let c = file_read_constraint_element(file, header);
-
-        constraints.push(Constraint { a, b, c });
-    }
-    return constraints;
+    constraints: Vec<Vec<VecSparse>>
 }
 
 fn read_r1cs(file_path: &str) -> Circuit {
@@ -151,7 +199,7 @@ fn read_r1cs(file_path: &str) -> Circuit {
 }
 
 fn main() -> std::io::Result<()> {
-    let file_name = "cases/code.r1cs";
+    let file_name = "cases/test.r1cs";
     let circuit = read_r1cs(file_name);
     println!("circuit: {:?}", circuit);
 
