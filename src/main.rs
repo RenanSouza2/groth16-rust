@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{prelude::*};
 use std::str::FromStr;
 use num_bigint::BigUint;
-// use num_traits::FromPrimitive;
+use num_traits::{One, Zero};
 
 fn file_read_bytes(file: &mut File, n: usize) -> Vec<u8> {
     let mut buffer = vec![0u8; n];
@@ -81,6 +81,46 @@ fn file_read_section_header(file: &mut File) -> Header {
     }
 }
 
+struct GF;
+impl GF {
+    fn q() -> BigUint {
+        return BigUint::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+            .unwrap();
+    }
+
+    fn w(size: usize) -> BigUint {
+        let e = (GF:: q() - BigUint::one()) / (BigUint::from(size));
+        return GF::pow(&BigUint::from(5u64), &BigUint::from(e));
+    }
+
+    fn add(a: &BigUint, b: &BigUint) -> BigUint {
+        return (a + b) % GF::q();
+    }
+
+    fn sub(a: &BigUint, b: &BigUint) -> BigUint {
+        if a < b {
+            return a + GF::q() - b;
+        }
+
+        return a - b;
+    }
+
+    fn mul(a: &BigUint, b: &BigUint) -> BigUint {
+        return (a * b) % GF::q();
+    }
+
+    fn inv(a: &BigUint) -> BigUint {
+        return a.modinv(&GF::q()).unwrap();
+    }
+
+    fn div(a: &BigUint, b: &BigUint) -> BigUint {
+        return GF::mul(a, &GF::inv(b));
+    }
+
+    fn pow(a: &BigUint, b: &BigUint) -> BigUint {
+        return a.modpow(b, &GF::q())
+    }
+}
 
 #[derive(Debug)]
 struct VecSparse {
@@ -88,6 +128,18 @@ struct VecSparse {
     max: usize,
     index: Vec<usize>,
     value: Vec<BigUint>,
+}
+
+impl From<Vec<BigUint>> for VecSparse {
+    fn from(v: Vec<BigUint>) -> VecSparse {
+        let mut res = VecSparse::new(v.len());
+        let mut i: usize = 0;
+        for value in v {
+            res.push(i, value);
+            i += 1;
+        }
+        return  res;
+    }
 }
 
 impl VecSparse {
@@ -99,20 +151,89 @@ impl VecSparse {
             value: Vec::new()
         }
     }
-}
 
-fn vec_sparse_push(v: &mut VecSparse, index: usize, value: BigUint) {
-    assert!(v.n == 0 || v.index[v.n - 1] < index);
-    assert!(index < v.max);
-    v.n += 1;
-    v.index.push(index);
-    v.value.push(value);
-}
+    fn push(&mut self, index: usize, value: BigUint) {
+        assert!(self.n == 0 || self.index[self.n - 1] < index);
+        assert!(index < self.max);
+        self.n += 1;
+        self.index.push(index);
+        self.value.push(value);
+    }
 
-fn matrix_sparse_push(M: &mut Vec<VecSparse>, index: usize, v: VecSparse) {
-    for i in 0..v.n as usize {
-        let value = v.value[i].clone();
-        vec_sparse_push(&mut M[v.index[i]], index, value);
+    fn split(&self) -> (VecSparse, VecSparse) {
+        let half = self.max / 2;
+        let mut v0 = VecSparse::new(half);
+
+        let mut i = 0;
+        while i < self.n && self.index[i] < half {
+            let value = self.value[i].clone();
+            v0.push(self.index[i], value);
+            i += 1;
+        }
+
+        let mut v1 = VecSparse::new(half);
+        while i < self.n {
+            let value = self.value[i].clone();
+            v1.push(self.index[i] - half, value);
+            i += 1;
+        }
+
+        return (v0, v1);
+    }
+
+    fn fft_rec(&self, r: &BigUint) -> Vec<BigUint> {
+        if self.n == 0 {
+            return vec![BigUint::zero(); self.max];
+        }
+
+        if self.max == 1 {
+            return vec![self.value[0].clone()];
+        }
+
+        let (v0_a, v1_a) = self.split();
+        let w_next = GF::mul(&r, &r);
+        let v0_b = v0_a.fft_rec(&w_next);
+        let v1_b = v1_a.fft_rec(&w_next);
+
+        let mut v1_c: Vec<BigUint> = Vec::new();
+        let mut w = BigUint::from(1u64);
+        for i in 0..v1_b.len() {
+            let mut value = v1_b[i].clone();
+            value = GF::mul(&value, &w);
+            v1_c.push(value);
+
+            w = GF::mul(&w, &r);
+        }
+
+        let mut v0_d: Vec<BigUint> = v0_b
+            .iter()
+            .zip(v1_c.iter())
+            .map(|(a, b)| GF::add(a, b))
+            .collect();
+
+        let v1_d: Vec<BigUint> = v0_b
+            .iter()
+            .zip(v1_c.iter())
+            .map(|(a, b)| GF::sub(a, b))
+            .collect();
+
+        v0_d.extend(v1_d);
+        return v0_d;
+    }
+
+    fn fft(&self) -> Vec<BigUint> {
+        let w = GF::w(self.max);
+        return self.fft_rec(&w);
+    }
+
+    fn ifft(&self) -> Vec<BigUint> {
+        let w = GF::w(self.max);
+        let res = self.fft_rec(&w);
+        let i = GF::inv(&BigUint::from(self.max));
+        return res
+            .iter()
+            .map(|value| GF::mul(value, &i))
+            .collect();
     }
 }
 
@@ -148,7 +269,7 @@ fn matrix_sparse_transpose(m: Vec<VecSparse>) -> Vec<VecSparse> {
         for j in 0..v.n {
             let index = v.index[j];
             let value = v.value[j].clone();
-            vec_sparse_push(&mut mt[index], i, value);
+            mt[index].push(i, value);
         }
     }
 
@@ -158,24 +279,24 @@ fn matrix_sparse_transpose(m: Vec<VecSparse>) -> Vec<VecSparse> {
 fn file_read_section_constraints(file: &mut File, header: &Header) -> Vec<Vec<VecSparse>> {
     file_seek_section(file, 2);
 
-    let mut M: Vec<Vec<VecSparse>> = (0..3)
+    let mut m_vec: Vec<Vec<VecSparse>> = (0..3)
         .map(|_| Vec::new())
         .collect();
 
     for _i in 0..header.n_contraints {
         for j in 0..3 {
             let v = file_read_vec_sparse(file, header);
-            M[j].push(v);
+            m_vec[j].push(v);
         }
     }
 
-    let mut Mt: Vec<Vec<VecSparse>> = Vec::new();
-    for m in M {
+    let mut mt_vec: Vec<Vec<VecSparse>> = Vec::new();
+    for m in m_vec {
         let mt = matrix_sparse_transpose(m);
-        Mt.push(mt);
+        mt_vec.push(mt);
     }
 
-    return Mt;
+    return mt_vec;
 }
 
 #[derive(Debug)]
@@ -199,9 +320,36 @@ fn read_r1cs(file_path: &str) -> Circuit {
 }
 
 fn main() -> std::io::Result<()> {
-    let file_name = "cases/test.r1cs";
-    let circuit = read_r1cs(file_name);
-    println!("circuit: {:?}", circuit);
+    // let file_name = "cases/test.r1cs";
+    // let circuit = read_r1cs(file_name);
+    // println!("circuit: {:?}", circuit);
+
+    let mut v1 = VecSparse::new(4);
+    v1.push(0, BigUint::one());
+    let v2 = v1.ifft();
+    println!("{:?}", v2);
+    let v3 = VecSparse::from(v2).fft();
+    println!("{:?}", v3);
+
+
+    // let mut w = GF::w(32);
+    // let mut i = 0u64;
+    // println!("{} : {}", i, w);
+    // while w != BigUint::one() {
+    //     w = GF::mul(&w, &w);
+    //     i += 1;
+    //     println!("{} : {}", i, w);
+    // }
+
+    // let mut q = GF::q() - BigUint::one();
+    // let mut s = 0u64;
+    // while (q.clone() % BigUint::from(2u64)).is_zero() {
+    //     q /= BigUint::from(2u64);
+    //     s += 1;
+    // }
+
+    // println!("{}", q);
+    // println!("{}", s);
 
     println!();
     Ok(())
