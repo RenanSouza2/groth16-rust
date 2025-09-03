@@ -2,13 +2,18 @@ mod file_helpers;
 mod vec_sparse;
 mod gf;
 mod r1cs;
+mod witness;
 
-use crate::r1cs::R1CS;
+use crate::{r1cs::R1CS, witness::Witness};
 
 fn main() -> std::io::Result<()> {
-    let file_name = "circuit/code.r1cs";
-    let circuit = R1CS::read(file_name);
+    let circuit_file_name = "circuit/code.r1cs";
+    let circuit = R1CS::read(circuit_file_name);
     println!("circuit: {:?}", circuit);
+
+    let witness_path_name = "circuit/witness.wtns";
+    let witness = Witness::read(witness_path_name);
+    println!("witness: {:?}", witness);
 
     // let v0: Vec<u64> = vec![0, 1, 0, 0];
     // let v1: Vec<BigUint> = v0.into_iter().map(BigUint::from).collect();

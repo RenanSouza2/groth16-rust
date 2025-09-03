@@ -1,8 +1,9 @@
 use num_bigint::BigUint;
 use num_traits::Zero;
+use std::fs::File;
 use std::mem;
 use std::ops::Shr;
-use crate::gf;
+use crate::{file_helpers, gf};
 
 #[derive(Debug)]
 pub struct VecSparse {
@@ -39,13 +40,25 @@ impl VecSparse {
         }
     }
 
-    pub fn with_data(
-        n: usize,
-        max: usize,
-        index: Vec<usize>,
-        value: Vec<BigUint>
-    ) -> Self {
-        return VecSparse  { n, max, index, value };
+    pub fn read(
+        file: &mut File,
+        field_size: usize,
+        max: usize
+    ) -> VecSparse {
+        let n = file_helpers::read_u64(file, 4) as usize;
+        let mut index: Vec<usize> = Vec::new();
+        let mut value: Vec<BigUint> = Vec::new();
+        for _i in 0..n {
+            let idx = file_helpers::read_u64(file, 4) as usize;
+            let val = file_helpers::read_big_uint(file, field_size);
+
+            assert!(idx < max);
+
+            index.push(idx);
+            value.push(val);
+        }
+
+        return VecSparse { n, max, index, value };
     }
 
     fn get(&self, i: usize) -> Option<usize> {

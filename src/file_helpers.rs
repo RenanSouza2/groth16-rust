@@ -2,8 +2,6 @@ use std::fs::File;
 use std::io::{Read, Seek};
 use num_bigint::BigUint;
 
-use crate::vec_sparse::VecSparse;
-
 pub fn read_bytes(file: &mut File, n: usize) -> Vec<u8> {
     let mut buffer = vec![0u8; n];
     let n_read = file.read(&mut buffer).unwrap();
@@ -26,8 +24,7 @@ pub fn read_big_uint(file: &mut File, n: usize) -> BigUint {
     return BigUint::from_bytes_le(buffer.as_slice());
 }
 
-pub fn seek_section(file: &mut File, section_type: u64)
-{
+pub fn seek_section(file: &mut File, section_type: u64) {
     file.seek(std::io::SeekFrom::Start(8)).unwrap();
     let n_sections = read_u64(file, 4);
     for _i in 0..n_sections {
@@ -40,27 +37,6 @@ pub fn seek_section(file: &mut File, section_type: u64)
 
         file.seek(std::io::SeekFrom::Current(cur_section_size as i64)).unwrap();
     }
-}
-
-pub fn file_read_vec_sparse(
-    file: &mut File,
-    field_size: usize,
-    max: usize
-) -> VecSparse {
-    let n = read_u64(file, 4) as usize;
-    let mut index: Vec<usize> = Vec::new();
-    let mut value: Vec<BigUint> = Vec::new();
-    for _i in 0..n {
-        let idx = read_u64(file, 4) as usize;
-        let val = read_big_uint(file, field_size);
-
-        assert!(idx < max);
-
-        index.push(idx);
-        value.push(val);
-    }
-
-    return VecSparse::with_data(n, max, index, value);
 }
 
 pub fn validate_magic_value(file: &mut File, magic: &str) {
