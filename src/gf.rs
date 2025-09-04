@@ -23,6 +23,10 @@ pub fn sub(a: &BigUint, b: &BigUint) -> BigUint {
     return a - b;
 }
 
+pub fn opo(a: &BigUint) -> BigUint {
+    return q() - a;
+}
+
 pub fn mul(a: &BigUint, b: &BigUint) -> BigUint {
     return (a * b) % q();
 }

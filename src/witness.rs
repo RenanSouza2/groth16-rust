@@ -5,9 +5,9 @@ use num_bigint::BigUint;
 use crate::{file_helpers, gf};
 
 #[derive(Debug)]
-struct Header {
-    field_size: usize,
-    n_values: usize,
+pub struct Header {
+    pub field_size: usize,
+    pub n_values: usize,
 }
 
 impl Header {
@@ -25,8 +25,8 @@ impl Header {
 }
 
 #[derive(Debug)]
-struct Values {
-    data: Vec<BigUint>
+pub struct Values {
+    pub data: Vec<BigUint>
 }
 
 impl Values {
@@ -45,8 +45,8 @@ impl Values {
 
 #[derive(Debug)]
 pub struct Witness {
-    header: Header,
-    values: Values,
+    pub header: Header,
+    pub values: Values,
 }
 
 impl Witness {

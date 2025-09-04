@@ -1,42 +1,52 @@
+use num_bigint::BigUint;
+
+use crate::{r1cs::R1CS, witness::Witness};
+
 mod file_helpers;
 mod vec_sparse;
 mod gf;
 mod r1cs;
 mod witness;
-
-use crate::{r1cs::R1CS, witness::Witness};
+mod fft;
 
 fn main() -> std::io::Result<()> {
-    let circuit_file_name = "circuit/code.r1cs";
-    let circuit = R1CS::read(circuit_file_name);
+    let folder = "3";
+
+    let circuit_file_name = format!("circuit/{}/code.r1cs", folder);
+    let circuit = R1CS::read(circuit_file_name.as_str());
     println!("circuit: {:?}", circuit);
 
-    let witness_path_name = "circuit/witness.wtns";
-    let witness = Witness::read(witness_path_name);
+    let witness_path_name = format!("circuit/{}/witness.wtns", folder);
+    let witness = Witness::read(witness_path_name.as_str());
     println!("witness: {:?}", witness);
 
-    // let v0: Vec<u64> = vec![0, 1, 0, 0];
+    circuit.pub_verify(&witness);
+    let h = circuit.comp_h(&witness);
+    println!("h: {:?}", h);
+
+    // let v0: Vec<u64> = vec![1, 2, 3, 4];
     // let v1: Vec<BigUint> = v0.into_iter().map(BigUint::from).collect();
-    // let v2 = VecSparse::from(v1);
-    // let mut v3 = v2.fft();
-    // println!("v3: {:?}", v3);
+    // let mut v2 = fft(&v1);
+    // println!("v2: {:?}", v2);
+    // v2 = ifft(&v2);
+    // println!("v2: {:?}", v2);
 
-    // let w = gf::w(4);
-    // println!("w: {}", w);
-    // let q = gf::q();
-    // println!("w: {}", q);
-    // let v = gf::mul(&v3[1], &v3[3]);
-    // println!("a: {}", v);
-    
-    // // for _i in 1..4 {
-    // //     let v4 = VecSparse::from(v3);
-    // //     v3 = v4.fft();
-    // //     println!("v3: {:?}", v3);
-    // // }
+    // let size: usize = 512;
+    // let w = gf::w(size);
+    // let a: Vec<Poly> = (0..size)
+    //     .map(|i| {
+    //     let wn = gf::pow(&w, &BigUint::from(i));
+    //     let data = [gf::opo(&wn), BigUint::one()];
+    //     return Poly { data: data.to_vec() };
+    // }).collect();
+    // let mut res = Poly::one();
+    // for i in a.iter() {
+    //     res = res.mul(i);
+    //     // println!("res: {:?}", res);
+    // }
+    // println!("res: {:?}", res);
 
-    // let v4 = VecSparse::from(v3);
-    // v3 = v4.ifft();
-    // println!("v3: {:?}", v3);
+    // println!("q: {:?}", gf::opo(&res.data[0]));
 
     println!();
     Ok(())
