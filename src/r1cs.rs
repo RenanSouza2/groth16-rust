@@ -3,7 +3,7 @@ use array_init::array_init;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
-use crate::fft::ifft;
+use crate::fft::{fft, ifft};
 use crate::witness::Witness;
 use crate::{file_helpers, gf};
 use crate::vec_sparse::{MatrixSparce, VecSparse};
@@ -132,6 +132,10 @@ impl Poly {
     pub fn mul(&self, b: &Poly) -> Poly {
         let mut res = Poly::zero();
         for i in 0..self.data.len() {
+            if i%100 == 0 {
+                println!("i: {} / {}", i, self.data.len());
+            }
+
             let val_a = self.get(i);
             for j in 0..b.data.len() {
                 let mut val_b = b.get(j);  
@@ -143,6 +147,20 @@ impl Poly {
             }
         }
         return res;
+    }
+
+    pub fn mul_fast(mut self, mut b: Poly) -> Poly {
+        let size: usize = (self.data.len() + b.data.len()).next_power_of_two();
+        self.data.resize(size, BigUint::zero());
+        b.data.resize(size, BigUint::zero());
+        let mut v1 = fft(&self.data);
+        let v2 = fft(&b.data);
+        for i in 0..size {
+            v1[i] = gf::mul(&v1[i], &v2[i]);   
+        }
+        v1 = ifft(&v1);
+
+        return Poly { data: v1 };
     }
 
     fn div_t(&self, size: usize) -> Poly {
@@ -196,22 +214,16 @@ impl R1CS {
         }
     }
 
-
     pub fn comp_h(&self, w: &Witness) -> Poly {
         let size = self.header.n_contraints.next_power_of_two();
-        let res: [Poly; 3] = std::array::from_fn(|i| {
+        let [mut u, mut v, w] = std::array::from_fn(|i| {
             let mut v = self.constraints.data[i].mul_vec(&w.values.data);
             v.resize(size, BigUint::zero());
             return Poly { data: ifft(&v) };
         });
-        println!("res: {:?}", res);
-        return res[0]
-            .tag("res[0]")
-            .mul(&res[1])
-            .tag("mul")
-            .sub(&res[2])
-            .tag("sub")
+        return u
+            .mul_fast(v)
+            .sub(&w)
             .div_t(size)
-            .tag("div");
     }
 }

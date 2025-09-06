@@ -1,6 +1,8 @@
 use num_bigint::BigUint;
+use num_traits::One;
 
-use crate::{r1cs::R1CS, witness::Witness};
+use crate::r1cs::{Poly, R1CS};
+use crate::witness::Witness;
 
 mod file_helpers;
 mod vec_sparse;
@@ -10,43 +12,27 @@ mod witness;
 mod fft;
 
 fn main() -> std::io::Result<()> {
-    let folder = "3";
+    let folder = "4";
 
     let circuit_file_name = format!("circuit/{}/code.r1cs", folder);
     let circuit = R1CS::read(circuit_file_name.as_str());
-    println!("circuit: {:?}", circuit);
+    // println!("circuit: {:?}", circuit);
 
     let witness_path_name = format!("circuit/{}/witness.wtns", folder);
     let witness = Witness::read(witness_path_name.as_str());
-    println!("witness: {:?}", witness);
+    // println!("witness: {:?}", witness);
 
     circuit.pub_verify(&witness);
     let h = circuit.comp_h(&witness);
-    println!("h: {:?}", h);
+    // println!("h: {:?}", h);
 
-    // let v0: Vec<u64> = vec![1, 2, 3, 4];
-    // let v1: Vec<BigUint> = v0.into_iter().map(BigUint::from).collect();
-    // let mut v2 = fft(&v1);
-    // println!("v2: {:?}", v2);
-    // v2 = ifft(&v2);
-    // println!("v2: {:?}", v2);
-
-    // let size: usize = 512;
-    // let w = gf::w(size);
-    // let a: Vec<Poly> = (0..size)
-    //     .map(|i| {
-    //     let wn = gf::pow(&w, &BigUint::from(i));
-    //     let data = [gf::opo(&wn), BigUint::one()];
-    //     return Poly { data: data.to_vec() };
-    // }).collect();
-    // let mut res = Poly::one();
-    // for i in a.iter() {
-    //     res = res.mul(i);
-    //     // println!("res: {:?}", res);
-    // }
-    // println!("res: {:?}", res);
-
-    // println!("q: {:?}", gf::opo(&res.data[0]));
+    // let one = BigUint::one();
+    // let two = BigUint::from(2u64);
+    // let three = BigUint::from(3u64);
+    // let mut a = Poly { data: vec![one.clone(), two.clone()] };
+    // let mut b = Poly { data: vec![two.clone(), three.clone()] };
+    // let c = a.mul_fast(&mut b);
+    // println!("c: {:?}", c);
 
     println!();
     Ok(())
