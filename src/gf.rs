@@ -2,8 +2,27 @@ use num_bigint::BigUint;
 use num_traits::One;
 
 pub fn q() -> BigUint {
-    return BigUint::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
-        .unwrap();
+    return BigUint::parse_bytes(
+        b"21888242871839275222246405745257275088696311157297823662689037894645226208583",
+        10,
+    )
+    .unwrap();
+}
+
+pub fn mont_R() -> BigUint {
+    return BigUint::parse_bytes(
+        b"6350874878119819312338956282401532409788428879151445726012394534686998597021",
+        10,
+    )
+    .unwrap();
+}
+
+pub fn mont_R_inv() -> BigUint {
+    return BigUint::parse_bytes(
+        b"20988524275117001072002809824448087578619730785600314334253784976379291040311",
+        10,
+    )
+    .unwrap();
 }
 
 pub fn w(size: usize) -> BigUint {
@@ -40,5 +59,13 @@ pub fn div(a: &BigUint, b: &BigUint) -> BigUint {
 }
 
 pub fn pow(a: &BigUint, b: &BigUint) -> BigUint {
-    return a.modpow(b, &q())
+    return a.modpow(b, &q());
+}
+
+pub fn to_mont(a: &BigUint) -> BigUint {
+    return mul(a, &mont_R());
+}
+
+pub fn from_mont(a: &BigUint) -> BigUint {
+    return mul(a, &mont_R_inv());
 }

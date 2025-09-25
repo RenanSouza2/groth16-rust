@@ -1,4 +1,3 @@
-
 include "sha256/sha256.circom";
 include "bitify.circom";
 

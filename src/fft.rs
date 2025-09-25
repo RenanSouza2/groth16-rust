@@ -1,10 +1,8 @@
-use std::{mem, ops::Shr};
-
+use std::mem;
+use std::ops::Shr;
 use num_bigint::BigUint;
 
 use crate::gf;
-
-
 
 fn bit_inv(value: usize, bit_lenth: usize) -> usize {
     let offset = mem::size_of::<usize>() * 8 - bit_lenth;
@@ -28,13 +26,7 @@ fn _shuffle(v: &Vec<BigUint>) -> Vec<BigUint> {
     return res;
 }
 
-fn _fft_rec(
-    v: &Vec<BigUint>,
-    begin: usize,
-    size: usize,
-    r: &BigUint
-) -> Vec<BigUint> {
-
+fn _fft_rec(v: &Vec<BigUint>, begin: usize, size: usize, r: &BigUint) -> Vec<BigUint> {
     if size == 1 {
         return vec![v[begin].clone()];
     }
@@ -82,8 +74,5 @@ pub fn ifft(v: &Vec<BigUint>) -> Vec<BigUint> {
     v_res = _fft_rec(&v_res, 0, v.len(), &w_inv);
 
     let i = gf::inv(&BigUint::from(v.len()));
-    return v_res
-        .iter()
-        .map(|value| gf::mul(value, &i))
-        .collect();
+    return v_res.iter().map(|value| gf::mul(value, &i)).collect();
 }

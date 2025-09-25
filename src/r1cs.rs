@@ -11,7 +11,7 @@ use crate::vec_sparse::{MatrixSparce, VecSparse};
 
 
 #[derive(Debug)]
-struct Header {
+pub struct Header {
     field_size: usize,
     n_wires: usize,
     n_pub_out: u64,
@@ -74,8 +74,8 @@ impl Constraints {
 
 #[derive(Debug)]
 pub struct R1CS {
-    header: Header,
-    constraints: Constraints
+    pub header: Header,
+    pub constraints: Constraints
 }
 
 fn vec_norm(v: &Vec<BigUint>) -> Vec<BigUint> {
@@ -163,7 +163,7 @@ impl Poly {
         return Poly { data: v1 };
     }
 
-    fn div_t(&self, size: usize) -> Poly {
+    fn div_vanish(&self, size: usize) -> Poly {
         let mut v = vec_norm(&self.data);
 
         if v.len() == 0 {
@@ -224,6 +224,6 @@ impl R1CS {
         return u
             .mul_fast(v)
             .sub(&w)
-            .div_t(size)
+            .div_vanish(size)
     }
 }
